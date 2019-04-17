@@ -16,18 +16,6 @@
 
 package org.springframework.cloud.netflix.feign;
 
-import java.io.IOException;
-import java.lang.annotation.Annotation;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -36,7 +24,6 @@ import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.support.BeanDefinitionReaderUtils;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.EnvironmentAware;
 import org.springframework.context.ResourceLoaderAware;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -54,6 +41,18 @@ import org.springframework.core.type.filter.TypeFilter;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
+
+import java.io.IOException;
+import java.lang.annotation.Annotation;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Spencer Gibb
@@ -97,6 +96,7 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar,
 		Map<String, Object> defaultAttrs = metadata
 				.getAnnotationAttributes(EnableFeignClients.class.getName(), true);
 
+		//如果存在自定义配置则定义配置Bean
 		if (defaultAttrs != null && defaultAttrs.containsKey("defaultConfiguration")) {
 			String name;
 			if (metadata.hasEnclosingClass()) {
@@ -119,18 +119,23 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar,
 
 		Map<String, Object> attrs = metadata
 				.getAnnotationAttributes(EnableFeignClients.class.getName());
+		//指定扫描类注解类型为@FeignClient的类
 		AnnotationTypeFilter annotationTypeFilter = new AnnotationTypeFilter(
 				FeignClient.class);
+		// 是否有指定feign client
 		final Class<?>[] clients = attrs == null ? null
 				: (Class<?>[]) attrs.get("clients");
+		// 没有指定
 		if (clients == null || clients.length == 0) {
 			scanner.addIncludeFilter(annotationTypeFilter);
+			// 通过注释的属性值得到要扫描的包名
 			basePackages = getBasePackages(metadata);
 		}
 		else {
 			final Set<String> clientClasses = new HashSet<>();
 			basePackages = new HashSet<>();
 			for (Class<?> clazz : clients) {
+				// 通过指定的feign client找到包名
 				basePackages.add(ClassUtils.getPackageName(clazz));
 				clientClasses.add(clazz.getCanonicalName());
 			}
@@ -145,7 +150,9 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar,
 					new AllTypeFilter(Arrays.asList(filter, annotationTypeFilter)));
 		}
 
+		// 循环列表
 		for (String basePackage : basePackages) {
+			// 得到bean的定义
 			Set<BeanDefinition> candidateComponents = scanner
 					.findCandidateComponents(basePackage);
 			for (BeanDefinition candidateComponent : candidateComponents) {
@@ -161,9 +168,11 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar,
 									FeignClient.class.getCanonicalName());
 
 					String name = getClientName(attributes);
+					// 注册feign client configuration
 					registerClientConfiguration(registry, name,
 							attributes.get("configuration"));
 
+					// 注册feign client
 					registerFeignClient(registry, annotationMetadata, attributes);
 				}
 			}
@@ -173,6 +182,7 @@ class FeignClientsRegistrar implements ImportBeanDefinitionRegistrar,
 	private void registerFeignClient(BeanDefinitionRegistry registry,
 			AnnotationMetadata annotationMetadata, Map<String, Object> attributes) {
 		String className = annotationMetadata.getClassName();
+		//定义Feign组件的创建工厂FeignClientFactoryBean
 		BeanDefinitionBuilder definition = BeanDefinitionBuilder
 				.genericBeanDefinition(FeignClientFactoryBean.class);
 		validate(attributes);

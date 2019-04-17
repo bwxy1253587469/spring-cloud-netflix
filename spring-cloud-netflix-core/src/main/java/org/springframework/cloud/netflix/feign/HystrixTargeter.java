@@ -35,9 +35,11 @@ class HystrixTargeter implements Targeter {
 	@Override
 	public <T> T target(FeignClientFactoryBean factory, Feign.Builder feign, FeignContext context,
 						Target.HardCodedTarget<T> target) {
+		//Feign实例不是HystrixFeign.Builder的则忽略，调用原生的构建方法
 		if (!(feign instanceof feign.hystrix.HystrixFeign.Builder)) {
 			return feign.target(target);
 		}
+		//以下方法则使用HystrixFeign Builder （自定义了构建实际代理对象HystrixInvocationHandler）构建一个执行处理器
 		feign.hystrix.HystrixFeign.Builder builder = (feign.hystrix.HystrixFeign.Builder) feign;
 		SetterFactory setterFactory = getOptional(factory.getName(), context,
 			SetterFactory.class);

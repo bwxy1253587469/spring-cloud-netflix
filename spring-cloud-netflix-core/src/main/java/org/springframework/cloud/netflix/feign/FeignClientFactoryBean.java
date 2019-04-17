@@ -85,6 +85,8 @@ class FeignClientFactoryBean implements FactoryBean<Object>, InitializingBean,
 		Logger logger = loggerFactory.create(this.type);
 
 		// @formatter:off
+		//FeignContext继承自BeanFactoty，所以可以用于获取Bean
+		//1、builder使用的Encoder、Decoder、Contract都来自FeignClientsConfiguration自动配置类中定义
 		Feign.Builder builder = get(context, Feign.Builder.class)
 				// required values
 				.logger(logger)
@@ -93,6 +95,7 @@ class FeignClientFactoryBean implements FactoryBean<Object>, InitializingBean,
 				.contract(get(context, Contract.class));
 		// @formatter:on
 
+		// 配置feign的一些属性
 		configureFeign(context, builder);
 
 		return builder;
@@ -218,8 +221,10 @@ class FeignClientFactoryBean implements FactoryBean<Object>, InitializingBean,
 	@Override
 	public Object getObject() throws Exception {
 		FeignContext context = applicationContext.getBean(FeignContext.class);
+		//从Spring Context中获取到Feign的Builder
 		Feign.Builder builder = feign(context);
 
+		//@FeignClient注解没有配置URL属性
 		if (!StringUtils.hasText(this.url)) {
 			String url;
 			if (!this.name.startsWith("http")) {
@@ -232,10 +237,13 @@ class FeignClientFactoryBean implements FactoryBean<Object>, InitializingBean,
 			return loadBalance(builder, context, new HardCodedTarget<>(this.type,
 					this.name, url));
 		}
+		//处理@FeignClient URL属性(主机名)存在的情况
 		if (StringUtils.hasText(this.url) && !this.url.startsWith("http")) {
 			this.url = "http://" + this.url;
 		}
 		String url = this.url + cleanPath();
+		//获取到调用客户端：Spring封装了基于Ribbon的客户端（LoadBalancerFeignClient）
+		//1、Feign自己封装的Request（基于java.net原生），2、OkHttpClient（新一代/HTTP2），3、ApacheHttpClient（常规）
 		Client client = getOptional(context, Client.class);
 		if (client != null) {
 			if (client instanceof LoadBalancerFeignClient) {
@@ -243,9 +251,13 @@ class FeignClientFactoryBean implements FactoryBean<Object>, InitializingBean,
 				// but ribbon is on the classpath, so unwrap
 				client = ((LoadBalancerFeignClient)client).getDelegate();
 			}
+			// 设置客户端
 			builder.client(client);
 		}
+		// DefaultTargeter或者HystrixTargeter，其中HystrixTargeter带熔断和降级功能
+		// 主要用户在Builder中配置调用失败回调方法
 		Targeter targeter = get(context, Targeter.class);
+		// Bean创建实际目标封装，最终生成InvocationHandler
 		return targeter.target(this, builder, context, new HardCodedTarget<>(
 				this.type, this.name, url));
 	}

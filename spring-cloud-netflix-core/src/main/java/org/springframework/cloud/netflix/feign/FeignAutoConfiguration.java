@@ -16,12 +16,11 @@
 
 package org.springframework.cloud.netflix.feign;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.TimeUnit;
-
+import feign.Client;
+import feign.Feign;
+import feign.httpclient.ApacheHttpClient;
+import feign.okhttp.OkHttpClient;
+import okhttp3.ConnectionPool;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.config.RegistryBuilder;
@@ -42,13 +41,12 @@ import org.springframework.cloud.netflix.feign.support.FeignHttpClientProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import feign.Client;
-import feign.Feign;
-import feign.httpclient.ApacheHttpClient;
-import feign.okhttp.OkHttpClient;
-import okhttp3.ConnectionPool;
-
 import javax.annotation.PreDestroy;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Spencer Gibb
@@ -67,6 +65,7 @@ public class FeignAutoConfiguration {
 		return HasFeatures.namedFeature("Feign", Feign.class);
 	}
 
+	// FeignContext 继承自NamedContextFactory，可以用此对象根据Bean名字或者对象获取到实例
 	@Bean
 	public FeignContext feignContext() {
 		FeignContext context = new FeignContext();
@@ -84,6 +83,7 @@ public class FeignAutoConfiguration {
 		}
 	}
 
+	/*默认引入的包依赖已带此类，所以默认使用的Targeter是这个带熔断的HystrixTargeter*/
 	@Configuration
 	@ConditionalOnMissingClass("feign.hystrix.HystrixFeign")
 	protected static class DefaultFeignTargeterConfiguration {
